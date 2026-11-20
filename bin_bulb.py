@@ -4,14 +4,16 @@ Bin Light - a Govee Wi-Fi bulb that shows which bin goes out.
 
 Runs every few minutes on GitHub Actions. Reads docs/bins.json (made by
 fetch_bins.py) and lights the bulb in the colour of the bin that's due, from
-the evening before until midday on collection day:
+7am to 11pm on the day before collection:
 
     grey bin  -> white
     green bin -> green
     brown bin -> orange
     two bins on the same day -> the bulb swaps between them every few minutes
 
-Otherwise it's off. If the council lookup stops working, it keeps going by
+Outside that window the script leaves the bulb alone, so it can be used as
+normal in the Govee app. The only command it sends is a single "off" at 11pm
+when the bin colour finishes. If the council lookup stops working, it keeps going by
 assuming each bin stays on its fortnightly cycle. It only talks to the bulb
 when the colour should change, so turning it off in the Govee app sticks until
 the next change.
@@ -37,11 +39,10 @@ BINS_FILE = ROOT / "docs" / "bins.json"
 STATE_FILE = ROOT / "docs" / "light_state.json"
 API = "https://openapi.api.govee.com/router/api/v1"
 
-SHOW_FROM = dt.time(17, 0)     # 5pm the evening before collection
-SHOW_UNTIL = dt.time(12, 0)    # midday on collection day
+SHOW_FROM = dt.time(7, 0)      # on at 7am the day before collection
+SHOW_UNTIL = dt.time(23, 0)    # off at 11pm the same day
 CYCLE_DAYS = 14
-NIGHT_START, NIGHT_END = 23, 7          # dim between these hours (UK time)
-DAY_BRIGHTNESS, NIGHT_BRIGHTNESS = 60, 15
+BRIGHTNESS = 60
 
 LOOKS = {   # bin -> (r, g, b)
     "grey":  (255, 255, 255),
@@ -75,8 +76,9 @@ def due_now(now):
     due = []
     for colour, dates in collection_dates(local.date()).items():
         for d in dates:
-            start = dt.datetime.combine(d - dt.timedelta(days=1), SHOW_FROM, tzinfo=UK)
-            end = dt.datetime.combine(d, SHOW_UNTIL, tzinfo=UK)
+            day_before = d - dt.timedelta(days=1)
+            start = dt.datetime.combine(day_before, SHOW_FROM, tzinfo=UK)
+            end = dt.datetime.combine(day_before, SHOW_UNTIL, tzinfo=UK)
             if start <= local < end:
                 due.append(colour)
                 break
@@ -95,10 +97,7 @@ def choose(due, last_shown):
 def target_state(colour, now):
     if colour is None:
         return {"power": 0}
-    hour = now.astimezone(UK).hour
-    night = hour >= NIGHT_START or hour < NIGHT_END
-    return {"power": 1, "rgb": list(LOOKS[colour]),
-            "brightness": NIGHT_BRIGHTNESS if night else DAY_BRIGHTNESS}
+    return {"power": 1, "rgb": list(LOOKS[colour]), "brightness": BRIGHTNESS}
 
 
 # ---------- talking to the bulb ----------

@@ -4,7 +4,7 @@ A Govee smart bulb that lights up in the colour of the bin that needs to go out,
 
 ## What the colours mean
 
-The bulb comes on at **5pm the evening before collection** and goes off at **midday on collection day**.
+The bulb shows the bin colour from **7am to 11pm on the day before collection**.
 
 | Bin | Bulb |
 |---|---|
@@ -13,7 +13,7 @@ The bulb comes on at **5pm the evening before collection** and goes off at **mid
 | Brown (garden waste) | Orange |
 | Two bins on the same day | Swaps between the two colours every few minutes |
 
-At all other times the bulb is **off**. Brightness is 60%, dropping to 15% between 11pm and 7am.
+At 11pm it switches off. The rest of the time the system leaves the bulb alone, so you can use it as a normal lamp in the Govee app. Brightness is 60%.
 
 Collection dates come from the Kirklees "Manage your bins" service twice a day, so Christmas and bank holiday changes come through automatically. If that service ever stops answering, the light keeps going by assuming each bin stays on its fortnightly cycle.
 
@@ -63,7 +63,7 @@ That's it. From now on it runs by itself.
 
 **More than one Govee device on the account:** by default the system uses the first colour bulb. To choose a specific one, open the latest **Update light** run log. It lists your devices with their `sku` and `device` values. Add those as the secrets `GOVEE_SKU` and `GOVEE_DEVICE`.
 
-**Timings and colours:** these are set at the top of `bin_bulb.py` (`SHOW_FROM`, `SHOW_UNTIL`, the `LOOKS` colour table, and the brightness levels).
+**Timings and colours:** these are set at the top of `bin_bulb.py` (`SHOW_FROM`, `SHOW_UNTIL`, the `LOOKS` colour table, and `BRIGHTNESS`).
 
 ---
 
