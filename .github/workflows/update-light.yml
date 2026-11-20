@@ -1,0 +1,65 @@
+name: Update light
+
+# GitHub's cron schedule is unreliable on small repos (runs can be hours late),
+# so instead one run stays alive for ~5.5 hours checking the bulb every 4 minutes,
+# then starts the next run itself. The schedule below is only a backup to restart
+# the chain if it ever stops.
+
+on:
+  schedule:
+    - cron: "7 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Re-send the colour even if nothing changed"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: light
+  cancel-in-progress: false
+
+jobs:
+  light:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Keep the bulb up to date
+        env:
+          GOVEE_API_KEY: ${{ secrets.GOVEE_API_KEY }}
+          GOVEE_DEVICE: ${{ secrets.GOVEE_DEVICE }}
+          GOVEE_SKU: ${{ secrets.GOVEE_SKU }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          git config user.name "bins-bot"
+          git config user.email "bins-bot@users.noreply.github.com"
+          end=$((SECONDS + 330 * 60))
+          first=1
+          while [ $SECONDS -lt $end ]; do
+            git pull -q --rebase || true
+            if [ "$first" = 1 ] && [ "$FORCE" = "true" ]; then
+              python bin_bulb.py --force || echo "bin_bulb.py failed, will retry"
+            else
+              python bin_bulb.py || echo "bin_bulb.py failed, will retry"
+            fi
+            first=0
+            git add docs/light_state.json 2>/dev/null || true
+            if ! git diff --cached --quiet; then
+              git commit -q -m "Light: $(python -c "import json;print(json.load(open('docs/light_state.json'))['colour'] or 'off')")"
+              (git pull -q --rebase && git push -q) || echo "push failed, will retry"
+            fi
+            sleep 240
+          done
+      - name: Start the next run
+        if: ${{ !cancelled() }}
+        run: gh workflow run update-light.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
